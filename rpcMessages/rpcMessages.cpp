@@ -10,8 +10,11 @@
 #include "rpcMessages.h"
 #include <string>
 #include <strsafe.h>
+#include <cctype>
+#include <clocale>
 
 #pragma comment(lib, "advapi32.lib")
+using namespace std;
 
 #define PROVIDER_NAME TEXT("RPCFWP")
 #define DLL_PATH TEXT("%SystemRoot%\\system32\\rpcMessages.dll")
@@ -24,6 +27,7 @@ BOOL compareCharCaseInsensitive(TCHAR c1, TCHAR c2)
         return true;
     else if (std::toupper(c1) == std::toupper(c2))
         return true;
+	
     return false;
 }
 
@@ -191,7 +195,8 @@ void addEventSource()
    
 }
 
-BOOL processProtectedEvent(BOOL successfulInjection, TCHAR* processName, TCHAR* processID) {
+BOOL processProtectedEvent(BOOL successfulInjection, TCHAR* processName, TCHAR* processID) 
+{
 
     bool bSuccess = FALSE;
     WORD eventType = EVENTLOG_AUDIT_SUCCESS;

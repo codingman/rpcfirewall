@@ -1,7 +1,7 @@
 #include "stdafx.h"
 #include "elevation.h"
 
-
+// 获取指定进程ID的访问令牌
 HANDLE getAccessToken(DWORD pid, DWORD desiredAccess)
 {
 	/* Retrieves an access token for a process */
@@ -31,7 +31,8 @@ HANDLE getAccessToken(DWORD pid, DWORD desiredAccess)
 		}
 		return AccessToken;
 	}
-	catch (...) {
+	catch (...) 
+	{
 		LastError = GetLastError();
 		_tprintf(TEXT("Exception during GetAccessToken(): %d\n"), GetLastError());
 	}
@@ -62,6 +63,7 @@ DWORD getProcessIDFromName(wchar_t* procName)
 
 }
 
+// 当前进程是否拥有SYSTEM权限
 BOOL amISYSTEM()
 {
 	BOOL amisystem = FALSE;
@@ -155,9 +157,10 @@ BOOL setPrivilege(
 	return TRUE;
 }
 
+// pid -- 运行于SYSTEM帐户的进程的ID
 void tryAndRunElevated(DWORD pid)
 {
-	// Enable core privileges  
+	// Enable core privileges  当前进程增加SeDebugPrivilege权限
 	if (!setPrivilege(getAccessToken(0, TOKEN_ADJUST_PRIVILEGES), TEXT("SeDebugPrivilege"), TRUE))
 	{
 		return;
@@ -186,6 +189,7 @@ void tryAndRunElevated(DWORD pid)
 	}	
 }
 
+// 把当前进程提权为SYSTEM权限
 void elevateCurrentProcessToSystem()
 {
 	TCHAR sysProcessName[] = TEXT("winlogon.exe");

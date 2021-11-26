@@ -7,4 +7,4 @@ BOOL ContainsRPCModule(DWORD dwPID);
 
 void classicHookRPCProcesses(DWORD processID, TCHAR* dllToInject);
 
-BOOL PESelfInjectToRemoteProcess(DWORD processID, TCHAR* procName);
+//BOOL PESelfInjectToRemoteProcess(DWORD processID, TCHAR* procName);

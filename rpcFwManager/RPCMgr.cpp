@@ -25,6 +25,7 @@ void concatArguments(int argc, _TCHAR* argv[], TCHAR command[])
 	_tcscat_s(command, MAX_PATH * 2, TEXT(" /elevated"));
 }
 
+// 获取指定进程ID和名字的所有进程信息
 ProcVector getRelevantProcVector(DWORD pid, TCHAR* pName)
 {
 	ProcVector procVector;
@@ -35,7 +36,8 @@ ProcVector getRelevantProcVector(DWORD pid, TCHAR* pName)
 	HANDLE hTool32 = CreateToolhelp32Snapshot(TH32CS_SNAPPROCESS, 0);
 	BOOL bProcess = Process32FirstW(hTool32, &pe32);
 
-	if (bProcess == TRUE) {
+	if (bProcess == TRUE)
+	{
 		while ((Process32Next(hTool32, &pe32)) == TRUE) 
 		{
 			if (pName != NULL && compareStringsCaseinsensitive(pe32.szExeFile, pName))
@@ -57,6 +59,7 @@ ProcVector getRelevantProcVector(DWORD pid, TCHAR* pName)
 	return procVector;
 }
 
+// 向符合PID和进程名的所有进程注入RPCFW动态库 
 void crawlProcesses(DWORD pid, TCHAR* pName) 
 {
 	ProcVector procToHook = getRelevantProcVector(pid, pName);
@@ -73,6 +76,7 @@ void crawlProcesses(DWORD pid, TCHAR* pName)
 	}
 }
 
+// 帮助提示
 void getHelp()
 {
 	_tprintf(TEXT("Usage: rpcFwManager /[Command]\n\n"));
@@ -85,6 +89,7 @@ void getHelp()
 	_tprintf(TEXT("update\t\t - notify the rpcFirewall.dll on configuration changes \n"));
 }
 
+// 从system32目录删除指定名称的文件，fileName是文件名，不是全路径
 void deleteFileFromSysfolder(std::basic_string<TCHAR> fileName)
 {
 
@@ -112,6 +117,7 @@ void deleteFileFromSysfolder(std::basic_string<TCHAR> fileName)
 	}
 }
 
+// 复制文件到system32目录
 void writeFileToSysfolder(std::basic_string<TCHAR> sourcePath, std::basic_string<TCHAR> sourceFileName)
 {
 
@@ -135,6 +141,7 @@ void writeFileToSysfolder(std::basic_string<TCHAR> sourcePath, std::basic_string
 	}
 }
 
+// 组合当前目录和文件名
 std::basic_string<TCHAR> getFullPathOfFile(const std::basic_string<TCHAR> &filename)
 {
 	TCHAR  filePath[INFO_BUFFER_SIZE];
@@ -150,6 +157,7 @@ std::basic_string<TCHAR> getFullPathOfFile(const std::basic_string<TCHAR> &filen
 	return std::basic_string<TCHAR>(filePath) + _T("\\") + filename;
 }
 
+// 创建安全属性
 BOOL createSecurityAttributes(SECURITY_ATTRIBUTES * psa, PSECURITY_DESCRIPTOR psd)
 {
 	if (InitializeSecurityDescriptor(psd, SECURITY_DESCRIPTOR_REVISION) != 0)
@@ -175,6 +183,7 @@ BOOL createSecurityAttributes(SECURITY_ATTRIBUTES * psa, PSECURITY_DESCRIPTOR ps
 	return FALSE;
 }
 
+// 创建全局事件
 HANDLE createGlobalEvent(BOOL manualReset,BOOL initialState, TCHAR* eventName)
 {
 	HANDLE gEvent = NULL;
@@ -203,18 +212,20 @@ HANDLE createGlobalEvent(BOOL manualReset,BOOL initialState, TCHAR* eventName)
 	return gEvent;
 }
 
+// 创建去除保护全局事件
 void createAllGloblEvents()
 {
 	globalUnprotectlEvent = createGlobalEvent(TRUE, FALSE, (TCHAR*)GLOBAL_RPCFW_EVENT_UNPROTECT);
 }
 
+// 创建命名的FileMapping
 HANDLE mapNamedMemory()
 {
 	HANDLE hMapFile = NULL;
 	SECURITY_ATTRIBUTES sa = { 0 };
 	PSECURITY_DESCRIPTOR psd = (PSECURITY_DESCRIPTOR)LocalAlloc(LPTR, SECURITY_DESCRIPTOR_MIN_LENGTH);
 
-	if (createSecurityAttributes(&sa,psd))
+	if (createSecurityAttributes(&sa, psd))
 	{
 		hMapFile = CreateFileMapping(INVALID_HANDLE_VALUE, &sa, PAGE_READWRITE, 0, MEM_BUF_SIZE, GLOBAL_SHARED_MEMORY);
 		if (hMapFile == NULL)
@@ -228,10 +239,12 @@ HANDLE mapNamedMemory()
 	return hMapFile;
 }
 
+// 从文件中读取配置
 CHAR* readConfigFile(DWORD * bufLen)
 {
 	std::basic_string<TCHAR> cfgFwPath = getFullPathOfFile(std::basic_string<TCHAR>(CONF_FILE_NAME));
-	HANDLE hFile = CreateFile(cfgFwPath.c_str(),GENERIC_READ,FILE_SHARE_READ,NULL,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL, NULL);
+	HANDLE hFile = CreateFile(cfgFwPath.c_str(),GENERIC_READ, \
+		FILE_SHARE_READ,NULL,OPEN_EXISTING,FILE_ATTRIBUTE_NORMAL, NULL);
 
 	if (hFile == INVALID_HANDLE_VALUE)
 	{
@@ -246,6 +259,7 @@ CHAR* readConfigFile(DWORD * bufLen)
 	return configBuf;
 }
 
+// 组合指定内容和它的Hash值
 std::basic_string<CHAR> addHeaderToBuffer(DWORD verNumber,CHAR* confBuf, DWORD bufSize)
 {
 	std::basic_string<CHAR> strToHash = confBuf;
@@ -257,20 +271,24 @@ std::basic_string<CHAR> addHeaderToBuffer(DWORD verNumber,CHAR* confBuf, DWORD b
 	return resultBuf;
 }
 
+// 从配置中提取指定键的值
 std::basic_string<CHAR> extractKeyValueFromConfig(std::basic_string<CHAR> confLine, std::basic_string<CHAR> key)
 {
 	confLine += (" ");
 	size_t keyOffset = confLine.find(key);
 
-	if (keyOffset == std::string::npos) return "\0";
+	if (keyOffset == std::string::npos) 
+		return "\0";
 
 	size_t nextKeyOffset = confLine.find(" ", keyOffset + 1);
 
-	if (nextKeyOffset == std::string::npos) return "\0";
+	if (nextKeyOffset == std::string::npos) 
+		return "\0";
 
 	return confLine.substr(keyOffset + key.size(), nextKeyOffset - keyOffset - key.size());
 }
 
+// 从输入参数中查找版本信息
 DWORD getConfigVersionNumber(CHAR* buff)
 {
 	std::string buffString(buff);
@@ -284,6 +302,7 @@ DWORD getConfigVersionNumber(CHAR* buff)
 	return std::stoi(version);
 }
 
+// 从文件读取配置并放入共享内存中
 void readConfigAndMapToMemory()
 {
 	CHAR* pBuf;
@@ -315,6 +334,7 @@ void readConfigAndMapToMemory()
 	}
 }
 
+// 设置事件或重置事件
 void sendSignalToGlobalEvent(TCHAR* globalEventName, eventSignal eSig)
 {
 	HANDLE hEvent = createGlobalEvent(TRUE, FALSE, globalEventName);
@@ -340,6 +360,7 @@ void sendSignalToGlobalEvent(TCHAR* globalEventName, eventSignal eSig)
 	}
 }
 
+// Install参数处理
 void cmdInstall()
 {
 	_tprintf(TEXT("installing RPCFW ...\n"));
@@ -348,9 +369,10 @@ void cmdInstall()
 	writeFileToSysfolder(getFullPathOfFile(std::basic_string<TCHAR>(RPC_FW_DLL_NAME)), RPC_FW_DLL_NAME);
 	writeFileToSysfolder(getFullPathOfFile(std::basic_string<TCHAR>(RPC_MESSAGES_DLL_NAME)), RPC_MESSAGES_DLL_NAME);
 
-	addEventSource();
+	addEventSource();    // 提供ETW provider
 }
 
+// 更新配置并刷新到共享内存
 void cmdUpdate()
 {
 	readConfigAndMapToMemory();
@@ -363,13 +385,13 @@ void cmdPid(int argc, _TCHAR* argv[])
 	readConfigAndMapToMemory();
 	DWORD procNum = 0;
 	if (argc > 2)
-	{
+	{  // 指定了PID
 		procNum = std::stoi((std::wstring)argv[2], nullptr, 10);
 		_tprintf(TEXT("Enabling RPCFW for process : %d\n"), procNum);
 		crawlProcesses(procNum, NULL);
 	}
 	else
-	{
+	{ // 所有进程
 		_tprintf(TEXT("Enabling RPCFW for ALL processes\n"));
 		crawlProcesses(0, NULL);
 	}
@@ -461,5 +483,6 @@ int _tmain(int argc, _TCHAR* argv[])
 	{
 		getHelp();
 	}
+	system("pause");
 	return 0;
 }

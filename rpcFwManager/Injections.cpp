@@ -1,17 +1,23 @@
 #include "stdafx.h"
 
-void hookProcessLoadLibrary(DWORD processID, WCHAR* dllToInject)  {
-
-	HANDLE hProcess = OpenProcess(MAXIMUM_ALLOWED, FALSE, processID);
+// 远程注入DLL到指定进程
+void hookProcessLoadLibrary(DWORD processID, WCHAR* dllToInject) 
+{
+	WCHAR wszOutMsg[MAX_PATH] = { 0 };
+ 	HANDLE hProcess = OpenProcess(MAXIMUM_ALLOWED, FALSE, processID);
 	if (hProcess == NULL)
 	{
 		_tprintf(TEXT("OpenProcess failed for pid %u: [%d]\n"), processID,GetLastError());
 		return;
 	}
 
-	const char* szInjectionDLLName = _bstr_t(dllToInject);
+	
+	std::wstring wstrTmp;
+	wstrTmp = dllToInject;
+	std::string strTmp(wstrTmp.begin(), wstrTmp.end());
+	const char* szInjectionDLLName = strTmp.c_str();
 
-	void* LLParam = (LPVOID)VirtualAllocEx(hProcess, NULL, MAX_PATH, MEM_RESERVE | MEM_COMMIT, PAGE_READWRITE);
+	void* LLParam = (LPVOID)VirtualAllocEx(hProcess, NULL, MAX_PATH*2, MEM_RESERVE | MEM_COMMIT, PAGE_EXECUTE_READWRITE);
 	if (LLParam == NULL)
 	{
 		_tprintf(TEXT("Error when calling WriteProcessMemory %d \n"), GetLastError());
@@ -31,16 +37,20 @@ void hookProcessLoadLibrary(DWORD processID, WCHAR* dllToInject)  {
 		return;
 	}
 	
-	HANDLE hRemoteThread = CreateRemoteThread(hProcess, NULL, 0, (LPTHREAD_START_ROUTINE)pLoadLib, LLParam, 0, 0);
+	// 由于会话空间的问题，在vista及win7以后的系统上可能会失败，错误码返回8
+	HANDLE hRemoteThread = CreateRemoteThread(hProcess, NULL, 0, (LPTHREAD_START_ROUTINE)pLoadLib, LLParam, 0, NULL);
 	if (hRemoteThread == NULL)
 	{
-		_tprintf(TEXT("Error when calling CreateRemoteThread %d \n"), GetLastError());
+		_snwprintf_s(wszOutMsg, MAX_PATH, MAX_PATH-1, TEXT("to pid :%d, Error when calling CreateRemoteThread %d \n"), processID, GetLastError());
+		OutputDebugStringW(wszOutMsg);
+		_tprintf(TEXT("to pid :%d, Error when calling CreateRemoteThread %d \n"), processID, GetLastError());
 		return;
 	}
 
 	CloseHandle(hRemoteThread);
 }
 
+// 确定进程中是否加载了RPC模块和是否加载了RPCFW模块
 std::pair<BOOL,BOOL> containsRPCModules(DWORD dwPID)
 {
 	BOOL containsRpcRuntimeModule = FALSE;

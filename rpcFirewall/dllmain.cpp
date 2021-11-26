@@ -11,11 +11,11 @@
 #include <tuple>
 #include <vector>
 
-HMODULE myhModule;
+HMODULE myhModule;  // 保存自身的模块句柄，用于卸载或禁用
 
 struct OpNumStruct
 {
-	BOOL anyOpnum;
+	BOOL anyOpnum;                  // TRUE--任意编号； FALSE--指定了编号
 	DWORD opnum;
 };
 
@@ -27,7 +27,7 @@ struct UUIDStruct
 
 struct AddressStruct
 {
-	BOOL anyAddress;
+	BOOL anyAddress;                  // TRUE--任意地址；FALSE--指定了地址
 	std::basic_string<TCHAR> address;
 };
 
@@ -217,6 +217,7 @@ BOOL checkIfReleventRegisteredEndpointsForProcess()
 	std::basic_string<TCHAR> allEndpoints = _T("Endpoint LIST:");
 	std::basic_string<TCHAR> singleEndpoint;
 
+	// 返回可以接收远程过程调用的绑定句柄。
 	RPC_STATUS status = RpcServerInqBindings(&binding_vector);
 	if (status == RPC_S_OK)
 	{
@@ -347,17 +348,20 @@ std::basic_string<TCHAR> extractKeyValueFromConfigLine(std::basic_string<TCHAR> 
 	confLine.replace(confLine.size() - 1, 1, _T(" "));
 	size_t keyOffset = confLine.find(key);
 
-	if (keyOffset == std::string::npos) return _T("\0");
+	if (keyOffset == std::string::npos) 
+		return _T("\0");
 
 	size_t nextKeyOffset = confLine.find(_T(" "), keyOffset + 1);
 
-	if (nextKeyOffset == std::string::npos) return _T("\0");
+	if (nextKeyOffset == std::string::npos) 
+		return _T("\0");
 
 	std::basic_string<TCHAR> val = confLine.substr(keyOffset + key.size(), nextKeyOffset - keyOffset - key.size());
 
 	return val;
 }
 
+  // 从配置文件中取UUID
 UUIDStruct extractUUIDFromConfigLine(std::basic_string<TCHAR> confLine)
 {
 	UUIDStruct uuidStr = {};
@@ -414,6 +418,7 @@ AddressStruct extractAddressFromConfigLine(std::basic_string<TCHAR> confLine)
 	return addrStruct;
 }
 
+// 需要block返回FALSE,否则返回TRUE
 BOOL extractActionFromConfigLine(std::basic_string<TCHAR> confLine)
 {
 	std::basic_string<TCHAR> action = extractKeyValueFromConfigLine(confLine, _T("action:"));
@@ -448,6 +453,7 @@ BOOL extractVerboseFromConfigLine(std::basic_string<TCHAR> confLine)
 	return FALSE;
 }
 
+// 把整个配置字符串分解为多条记录。
 void loadPrivateBufferToPassiveVectorConfiguration()
 {
 	WRITE_DEBUG_MSG(StringToWString(privateConfigBuffer));
@@ -492,7 +498,8 @@ BOOL checkKeyValueInConfigLine(TCHAR* confLine, TCHAR* key,DWORD keySize,std::ba
 	confString += _T("");
 
 	size_t keyOffset = confString.find(key);
-	if (keyOffset == std::string::npos) return TRUE;
+	if (keyOffset == std::string::npos) 
+		return TRUE;
 
 	size_t keyEndOffset = confString.find(_T(" "), keyOffset);
 	size_t configValueSize = keyEndOffset - keyOffset - keySize;
@@ -574,6 +581,7 @@ void mappedBufferCopyToPrivateConfiguration()
 	privateConfigBuffer = mappedBufStr;
 }
 
+// 检查是否有新版本的配置
 BOOL isNewVersion()
 {
 	size_t verLoc = privateConfigBuffer.find("ver:");
@@ -645,6 +653,7 @@ BOOL checkIfVerbose()
 	return FALSE;
 }
 
+// 从共享内存加载配置
 void loadConfigurationFromMappedMemory()
 {
 	if (hConfigurationMapFile == NULL)
@@ -692,6 +701,7 @@ void loadConfigurationFromMappedMemory()
 	}
 }
 
+// output 事件
 void writeEventToDebugOutput(RpcEventParameters eventParams, BOOL allowCall)
 {
 	std::basic_string<TCHAR> dbgMsg = _T("");
@@ -838,10 +848,14 @@ void dllDetached()
 		}
 	}
 
-	if (uninstallEvent != NULL) CloseHandle(uninstallEvent);
-	if (configurationUpdatedEvent != NULL) CloseHandle(configurationUpdatedEvent);
-	if (managerDoneEvent != NULL) CloseHandle(managerDoneEvent);
-	if (hConfigurationMapFile != NULL) CloseHandle(hConfigurationMapFile);
+	if (uninstallEvent != NULL) 
+		CloseHandle(uninstallEvent);
+	if (configurationUpdatedEvent != NULL) 
+		CloseHandle(configurationUpdatedEvent);
+	if (managerDoneEvent != NULL)
+		CloseHandle(managerDoneEvent);
+	if (hConfigurationMapFile != NULL) 
+		CloseHandle(hConfigurationMapFile);
 
 }
 
@@ -862,6 +876,7 @@ BOOL APIENTRY DllMain( HMODULE hModule, DWORD  ul_reason_for_call, LPVOID lpRese
     return TRUE;
 }
 
+// 填充事件参数
 RpcEventParameters populateEventParameters(PRPC_MESSAGE pRpcMsg, TCHAR* szStringBindingServer, TCHAR* szStringBinding, TCHAR* functionName)
 {
 	RpcEventParameters eventParams = {};
@@ -923,7 +938,8 @@ RpcEventParameters populateEventParameters(PRPC_MESSAGE pRpcMsg, TCHAR* szString
 void rpcFunctionVerboseOutput(BOOL allowCall, RpcEventParameters eventParams)
 {
 	std::basic_string<TCHAR> allowed(_T("Allowed"));
-	if (!allowCall) allowed = _T("Blocked");
+	if (!allowCall)
+		allowed = _T("Blocked");
 	if (verbose)
 	{
 		std::basic_string<TCHAR> verboseRpcCall(allowed + _T(",") + eventParams.functionName + _T(",") + eventParams.uuidString + _T(",") + eventParams.OpNum + _T(",") + eventParams.endpoint + _T(",") + eventParams.sourceAddress + _T(",") + eventParams.clientName + _T(",") + eventParams.authnLevel + _T(",") + eventParams.authnSvc);
@@ -933,9 +949,12 @@ void rpcFunctionVerboseOutput(BOOL allowCall, RpcEventParameters eventParams)
 
 void RpcRuntimeCleanups(RPC_BINDING_HANDLE serverBinding,TCHAR* szStringBinding, TCHAR* szStringBindingServer)
 {
-	if (serverBinding != NULL) RpcBindingFree(&serverBinding);
-	if (szStringBinding != NULL) RpcStringFree((RPC_WSTR*)&szStringBinding);
-	if (szStringBindingServer != NULL) RpcStringFree((RPC_WSTR*)&szStringBindingServer);
+	if (serverBinding != NULL)
+		RpcBindingFree(&serverBinding);
+	if (szStringBinding != NULL)
+		RpcStringFree((RPC_WSTR*)&szStringBinding);
+	if (szStringBindingServer != NULL)
+		RpcStringFree((RPC_WSTR*)&szStringBindingServer);
 }
 
 BOOL processRPCCallInternal(TCHAR* functionName, PRPC_MESSAGE pRpcMsg)
@@ -949,6 +968,8 @@ BOOL processRPCCallInternal(TCHAR* functionName, PRPC_MESSAGE pRpcMsg)
 	try {
 		RPC_STATUS status;
 
+		// 将客户端绑定句柄转换为部分绑定的服务器绑定句柄。
+		// 第一个参数如果指定的值为零，则服务器模拟此服务器线程正在提供服务的客户端。
 		status = RpcBindingServerFromClient(0, &serverBinding);
 		if (status != RPC_S_OK)
 		{
@@ -958,6 +979,7 @@ BOOL processRPCCallInternal(TCHAR* functionName, PRPC_MESSAGE pRpcMsg)
 			return allowCall;
 		}
 
+		// 返回绑定句柄的字符串表示形式。
 		status = RpcBindingToStringBinding(serverBinding, (RPC_WSTR*)&szStringBinding);
 		if (status != RPC_S_OK)
 		{
@@ -968,6 +990,7 @@ BOOL processRPCCallInternal(TCHAR* functionName, PRPC_MESSAGE pRpcMsg)
 		}
 
 		// Consider only calls over network transports
+		// 只考虑通过网络传输的调用
 		if (_tcsstr(szStringBinding, _T("ncalrpc")) != NULL)
 		{
 			RpcRuntimeCleanups(serverBinding, szStringBinding, szStringBindingServer);
@@ -986,15 +1009,19 @@ BOOL processRPCCallInternal(TCHAR* functionName, PRPC_MESSAGE pRpcMsg)
 		allowCall = !configResult.first;
 		auditCall = configResult.second;
 		rpcFunctionVerboseOutput(allowCall,eventParams);
-		if (auditCall) rpcFunctionCalledEvent(allowCall, eventParams);
+		if (auditCall)
+			rpcFunctionCalledEvent(allowCall, eventParams);       // 生成RPC调用windows事件日志
 	}
-	catch (const std::runtime_error& re) {
+	catch (const std::runtime_error& re)
+	{
 		WRITE_DEBUG_MSG_WITH_ERROR_MSG(TEXT("Exception: Runtime error during call"), (TCHAR*)re.what());
 	}
-	catch (const std::exception& ex) {
+	catch (const std::exception& ex)
+	{
 		WRITE_DEBUG_MSG_WITH_ERROR_MSG(TEXT("Exception: Runtime error during call"), (TCHAR*)ex.what());
 	}
-	catch (...) {
+	catch (...) 
+	{
 		WRITE_DEBUG_MSG_WITH_GETLASTERROR(TEXT("Exception: Runtime error during call"));
 	}
 
@@ -1006,7 +1033,8 @@ BOOL processRPCCallInternal(TCHAR* functionName, PRPC_MESSAGE pRpcMsg)
 void processRPCCall(TCHAR* functionName, PRPC_MESSAGE pRpcMsg)
 {
 	BOOL allowCall = processRPCCallInternal(functionName, pRpcMsg);
-	if (!allowCall) {
+	if (!allowCall)
+	{
 		RpcRaiseException(ERROR_ACCESS_DENIED);
 	}
 }
